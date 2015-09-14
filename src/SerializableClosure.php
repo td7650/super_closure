@@ -169,6 +169,11 @@ class SerializableClosure implements \Serializable
      */
     private function reconstructClosure()
     {
+        foreach($this->data['context'] as $key => &$value) {
+            if ($value == Serializer::EXCLUDE) {
+                $value = Serializer::getExcludeFromContext($key);
+            }
+        }
         // Simulate the original context the closure was created in.
         extract($this->data['context'], EXTR_OVERWRITE);
 

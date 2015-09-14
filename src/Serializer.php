@@ -19,18 +19,20 @@ class Serializer implements SerializerInterface
      */
     const RECURSION = "{{RECURSION}}";
 
+    const EXCLUDE = "{{EXCLUDE}}";
+
     /**
      * The keys of closure data required for serialization.
      *
      * @var array
      */
-    private static $dataToKeep = [
+    private static $dataToKeep = array(
         'code'     => true,
         'context'  => true,
         'binding'  => true,
         'scope'    => true,
         'isStatic' => true,
-    ];
+    );
 
     /**
      * The closure analyzer instance.
@@ -46,6 +48,17 @@ class Serializer implements SerializerInterface
      */
     private $signingKey;
 
+
+    /**
+     * The list of objects from context to exclude from serialization
+     * set by key and value from these static list
+     *
+     * @var array
+     */
+    protected static $excludeFromContext = array(
+        //
+    );
+    
     /**
      * Create a new serializer instance.
      *
@@ -60,6 +73,16 @@ class Serializer implements SerializerInterface
         $this->signingKey = $signingKey;
     }
 
+    public static function setExcludeFromContext($key, &$value)
+    {
+        self::$excludeFromContext[$key] = $value;
+    }
+
+    public static function &getExcludeFromContext($key)
+    {
+        return self::$excludeFromContext[$key];
+    }
+    
     /**
      * @inheritDoc
      */
@@ -118,11 +141,14 @@ class Serializer implements SerializerInterface
             $data = array_intersect_key($data, self::$dataToKeep);
 
             // Wrap any other closures within the context.
-            foreach ($data['context'] as &$value) {
+            foreach ($data['context'] as $key => &$value) {
                 if ($value instanceof \Closure) {
                     $value = ($value === $closure)
                         ? self::RECURSION
                         : new SerializableClosure($value, $this);
+                }
+                if (isset(self::$excludeFromContext[$key])) {
+                    $value = self::EXCLUDE;
                 }
             }
         }
