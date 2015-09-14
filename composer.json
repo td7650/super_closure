@@ -1,20 +1,18 @@
 {
-    "name": "jeremeamia/superclosure",
+    "name": "td7650/superclosure",
     "type": "library",
     "description": "Serialize Closure objects, including their context and binding",
     "keywords": ["closure", "serialize", "serializable", "function", "parser", "tokenizer", "lambda"],
-    "homepage": "https://github.com/jeremeamia/super_closure",
+    "homepage": "https://github.com/td7650/super_closure",
     "license": "MIT",
     "authors": [
         {
-            "name": "Jeremy Lindblom",
-            "email": "jeremeamia@gmail.com",
-            "homepage": "https://github.com/jeremeamia",
-            "role": "Developer"
+            "name": "Thomas Dräger",
+            "email": "td7650@gmx.de"
         }
     ],
     "require": {
-        "php": ">=5.4",
+        "php": ">=5.3",
         "nikic/php-parser": "~1.2"
     },
     "require-dev": {
