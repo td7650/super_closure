@@ -15,7 +15,7 @@ abstract class ClosureAnalyzer
      */
     public function analyze(\Closure $closure)
     {
-        $data = [
+        $data = array(
             'reflection' => new \ReflectionFunction($closure),
             'code'       => null,
             'hasThis'    => false,
@@ -24,7 +24,7 @@ abstract class ClosureAnalyzer
             'binding'    => null,
             'scope'      => null,
             'isStatic'   => $this->isClosureStatic($closure),
-        ];
+        );
 
         $this->determineCode($data);
         $this->determineContext($data);

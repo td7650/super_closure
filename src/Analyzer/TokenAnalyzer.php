@@ -22,7 +22,7 @@ class TokenAnalyzer extends ClosureAnalyzer
     {
         $potential = $this->determinePotentialTokens($data['reflection']);
         $braceLevel = $index = $step = $insideUse = 0;
-        $data['tokens'] = $data['context'] = [];
+        $data['tokens'] = $data['context'] = array();
 
         foreach ($potential as $token) {
             $token = new Token($token);
