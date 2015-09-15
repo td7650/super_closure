@@ -14,6 +14,13 @@ class Serializer
 {
 
     /**
+     * The closure analyzer instance.
+     *
+     * @var ClosureAnalyzer
+     */
+    private $analyzer;
+
+    /**
      * The HMAC key to sign serialized closures.
      *
      * @var string
@@ -26,17 +33,18 @@ class Serializer
      * @param ClosureAnalyzer|null $analyzer   Closure analyzer instance.
      * @param string|null          $signingKey HMAC key to sign closure data.
      */
-    public function __construct($signingKey = null)
+    public function __construct(ClosureAnalyzer $analyzer = null, $signingKey = null)
     {
+        $this->analyzer = $analyzer;
         $this->signingKey = $signingKey;
     }
 
     /**
      * @inheritDoc
      */
-    public function serialize(\Closure $closure, $analyzer = null)
+    public function serialize(\Closure $closure)
     {
-        $serialized = serialize(new SerializableClosure($closure, $analyzer));
+        $serialized = serialize(new SerializableClosure($closure, $this->analyzer));
 
         if ($this->signingKey) {
             $signature = $this->calculateSignature($serialized);
@@ -69,20 +77,25 @@ class Serializer
         return $unserialized->getClosure();
     }
 
-    public function wrapData(&$data)
+    public function wrapData($data)
     {
         if (is_array($data)) {
             foreach ($data as $key => &$value) {
                 if ($value instanceof \Closure) {
-                    $value = new SerializableClosure($value, $this);
+                    $value = new SerializableClosure($value, $this->analyzer);
                 }
             }
         } else {
-            $data = new SerializableClosure($data, $this);
+            if ($data instanceof \Closure) {
+                $data = new SerializableClosure($data, $this->analyzer);
+            }
         }
+
+        return $data;
+
     }
 
-    public function unwrapData(&$data)
+    public function unwrapData($data)
     {
         if (is_array($data)) {
             foreach ($data as $key => &$value) {
@@ -95,6 +108,9 @@ class Serializer
                 $data = $data->getClosure();
             }
         }
+
+        return $data;
+
     }
 
     /**
