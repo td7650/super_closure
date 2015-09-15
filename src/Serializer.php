@@ -10,36 +10,8 @@ use SuperClosure\Exception\ClosureUnserializationException;
  * We're abstracting away all the details, impossibilities, and scary things
  * that happen within.
  */
-class Serializer implements SerializerInterface
+class Serializer
 {
-    /**
-     * The special value marking a recursive reference to a closure.
-     *
-     * @var string
-     */
-    const RECURSION = "{{RECURSION}}";
-
-    const EXCLUDE = "{{EXCLUDE}}";
-
-    /**
-     * The keys of closure data required for serialization.
-     *
-     * @var array
-     */
-    private static $dataToKeep = array(
-        'code'     => true,
-        'context'  => true,
-        'binding'  => true,
-        'scope'    => true,
-        'isStatic' => true,
-    );
-
-    /**
-     * The closure analyzer instance.
-     *
-     * @var ClosureAnalyzer
-     */
-    private $analyzer;
 
     /**
      * The HMAC key to sign serialized closures.
@@ -48,47 +20,23 @@ class Serializer implements SerializerInterface
      */
     private $signingKey;
 
-
-    /**
-     * The list of objects from context to exclude from serialization
-     * set by key and value from these static list
-     *
-     * @var array
-     */
-    protected static $excludeFromContext = array(
-        //
-    );
-    
     /**
      * Create a new serializer instance.
      *
      * @param ClosureAnalyzer|null $analyzer   Closure analyzer instance.
      * @param string|null          $signingKey HMAC key to sign closure data.
      */
-    public function __construct(
-        ClosureAnalyzer $analyzer = null,
-        $signingKey = null
-    ) {
-        $this->analyzer = $analyzer ?: new DefaultAnalyzer;
+    public function __construct($signingKey = null)
+    {
         $this->signingKey = $signingKey;
     }
 
-    public static function setExcludeFromContext($key, &$value)
-    {
-        self::$excludeFromContext[$key] = $value;
-    }
-
-    public static function &getExcludeFromContext($key)
-    {
-        return self::$excludeFromContext[$key];
-    }
-    
     /**
      * @inheritDoc
      */
-    public function serialize(\Closure $closure)
+    public function serialize(\Closure $closure, $analyzer = null)
     {
-        $serialized = serialize(new SerializableClosure($closure, $this));
+        $serialized = serialize(new SerializableClosure($closure, $analyzer));
 
         if ($this->signingKey) {
             $signature = $this->calculateSignature($serialized);
@@ -119,41 +67,6 @@ class Serializer implements SerializerInterface
         $unserialized = unserialize($serialized);
 
         return $unserialized->getClosure();
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getData(\Closure $closure, $forSerialization = false)
-    {
-        // Use the closure analyzer to get data about the closure.
-        $data = $this->analyzer->analyze($closure);
-
-        // If the closure data is getting retrieved solely for the purpose of
-        // serializing the closure, then make some modifications to the data.
-        if ($forSerialization) {
-            // If there is no reference to the binding, don't serialize it.
-            if (!$data['hasThis']) {
-                $data['binding'] = null;
-            }
-
-            // Remove data about the closure that does not get serialized.
-            $data = array_intersect_key($data, self::$dataToKeep);
-
-            // Wrap any other closures within the context.
-            foreach ($data['context'] as $key => &$value) {
-                if ($value instanceof \Closure) {
-                    $value = ($value === $closure)
-                        ? self::RECURSION
-                        : new SerializableClosure($value, $this);
-                }
-                if (isset(self::$excludeFromContext[$key])) {
-                    $value = self::EXCLUDE;
-                }
-            }
-        }
-
-        return $data;
     }
 
     public function wrapData(&$data)
@@ -203,7 +116,7 @@ class Serializer implements SerializerInterface
                 $scope = $scope ? $scope->getName() : 'static';
                 $data = $data->bindTo($binding, $scope);
             }
-            $data = new SerializableClosure($data, $serializer);
+            $data = new SerializableClosure($data);
         } elseif (is_array($data) || $data instanceof \stdClass || $data instanceof \Traversable) {
             // Handle members of traversable values.
             foreach ($data as &$value) {

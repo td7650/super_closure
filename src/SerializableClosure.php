@@ -1,5 +1,7 @@
 <?php namespace SuperClosure;
 
+use SuperClosure\Analyzer\AstAnalyzer as DefaultAnalyzer;
+use SuperClosure\Analyzer\ClosureAnalyzer;
 use SuperClosure\Exception\ClosureUnserializationException;
 
 /**
@@ -12,18 +14,51 @@ use SuperClosure\Exception\ClosureUnserializationException;
 class SerializableClosure implements \Serializable
 {
     /**
+     * The special value marking a recursive reference to a closure.
+     *
+     * @var string
+     */
+    const RECURSION = "{{RECURSION}}";
+
+    const EXCLUDE = "{{EXCLUDE}}";
+
+    /**
+     * The keys of closure data required for serialization.
+     *
+     * @var array
+     */
+    private static $dataToKeep = array(
+        'code'     => true,
+        'context'  => true,
+        'binding'  => true,
+        'scope'    => true,
+        'isStatic' => true,
+        'analyzer' => true,
+    );
+
+    /**
+     * The closure analyzer instance.
+     *
+     * @var ClosureAnalyzer
+     */
+    private $analyzer;
+
+    /**
+     * The list of objects from context to exclude from serialization
+     * set by key and value from these static list
+     *
+     * @var array
+     */
+    protected static $excludeFromContext = array(
+        //
+    );
+
+    /**
      * The closure being wrapped for serialization.
      *
      * @var \Closure
      */
     private $closure;
-
-    /**
-     * The serializer doing the serialization work.
-     *
-     * @var SerializerInterface
-     */
-    private $serializer;
 
     /**
      * The data from unserialization.
@@ -36,14 +71,58 @@ class SerializableClosure implements \Serializable
      * Create a new serializable closure instance.
      *
      * @param \Closure                 $closure
-     * @param SerializerInterface|null $serializer
+     * @param ClosureAnalyzer $analyzer
      */
-    public function __construct(
-        \Closure $closure,
-        SerializerInterface $serializer = null
-    ) {
+    public function __construct(\Closure $closure, ClosureAnalyzer $analyzer = null)
+    {
         $this->closure = $closure;
-        $this->serializer = $serializer ?: new Serializer;
+        $this->analyzer = $analyzer ?: new DefaultAnalyzer;
+    }
+
+
+    public static function setExcludeFromContext($key, &$value)
+    {
+        self::$excludeFromContext[$key] = $value;
+    }
+
+    public static function &getExcludeFromContext($key)
+    {
+        return self::$excludeFromContext[$key];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getData(\Closure $closure, $forSerialization = false)
+    {
+        // Use the closure analyzer to get data about the closure.
+        $data = $this->analyzer->analyze($closure);
+
+        // If the closure data is getting retrieved solely for the purpose of
+        // serializing the closure, then make some modifications to the data.
+        if ($forSerialization) {
+            // If there is no reference to the binding, don't serialize it.
+            if (!$data['hasThis']) {
+                $data['binding'] = null;
+            }
+
+            // Remove data about the closure that does not get serialized.
+            $data = array_intersect_key($data, self::$dataToKeep);
+
+            // Wrap any other closures within the context.
+            foreach ($data['context'] as $key => &$value) {
+                if ($value instanceof \Closure) {
+                    $value = ($value === $closure)
+                        ? self::RECURSION
+                        : new self($value, $this->analyzer);
+                }
+                if (isset(self::$excludeFromContext[$key])) {
+                    $value = self::EXCLUDE;
+                }
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -94,7 +173,7 @@ class SerializableClosure implements \Serializable
     {
         return new self(
             $this->closure->bindTo($newthis, $newscope),
-            $this->serializer
+            $this->analyzer
         );
     }
 
@@ -107,7 +186,7 @@ class SerializableClosure implements \Serializable
     public function serialize()
     {
         try {
-            $this->data = $this->data ?: $this->serializer->getData($this->closure, true);
+            $this->data = $this->data ?: $this->getData($this->closure, true);
             return serialize($this->data);
         } catch (\Exception $e) {
             trigger_error(
@@ -170,15 +249,15 @@ class SerializableClosure implements \Serializable
     private function reconstructClosure()
     {
         foreach($this->data['context'] as $key => &$value) {
-            if ($value == Serializer::EXCLUDE) {
-                $value = Serializer::getExcludeFromContext($key);
+            if ($value == self::EXCLUDE) {
+                $value = self::getExcludeFromContext($key);
             }
         }
         // Simulate the original context the closure was created in.
         extract($this->data['context'], EXTR_OVERWRITE);
 
         // Evaluate the code to recreate the closure.
-        if ($_fn = array_search(Serializer::RECURSION, $this->data['context'], true)) {
+        if ($_fn = array_search(self::RECURSION, $this->data['context'], true)) {
             @eval("\${$_fn} = {$this->data['code']};");
             $this->closure = $$_fn;
         } else {
@@ -193,6 +272,6 @@ class SerializableClosure implements \Serializable
      */
     public function __debugInfo()
     {
-        return $this->data ?: $this->serializer->getData($this->closure, true);
+        return $this->data ?: $this->getData($this->closure, true);
     }
 }
