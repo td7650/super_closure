@@ -156,6 +156,34 @@ class Serializer implements SerializerInterface
         return $data;
     }
 
+    public function wrapData(&$data)
+    {
+        if (is_array($data)) {
+            foreach ($data as $key => &$value) {
+                if ($value instanceof \Closure) {
+                    $value = new SerializableClosure($value, $this);
+                }
+            }
+        } else {
+            $data = new SerializableClosure($data, $this);
+        }
+    }
+
+    public function unwrapData(&$data)
+    {
+        if (is_array($data)) {
+            foreach ($data as $key => &$value) {
+                if ($value instanceof SerializableClosure) {
+                    $value = $value->getClosure();
+                }
+            }
+        } else {
+            if ($data instanceof SerializableClosure) {
+                $data = $data->getClosure();
+            }
+        }
+    }
+
     /**
      * Recursively traverses and wraps all Closure objects within the value.
      *
