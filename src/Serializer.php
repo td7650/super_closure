@@ -10,7 +10,7 @@ use SuperClosure\Exception\ClosureUnserializationException;
  * We're abstracting away all the details, impossibilities, and scary things
  * that happen within.
  */
-class Serializer
+class Serializer implements SerializerInterface
 {
 
     /**
@@ -77,6 +77,12 @@ class Serializer
         return $unserialized->getClosure();
     }
 
+    /**
+     * takes a Closure or a array of Closures and decorates it with a SerializableClosure object
+     *
+     * @param mixed     $data
+     * @return mixed
+     */
     public function wrapData($data)
     {
         if (is_array($data)) {
@@ -95,6 +101,13 @@ class Serializer
 
     }
 
+    /**
+     * Takes a decorated SerializableClosure object (or an array of it) and extracts the
+     * original Closure objects
+     *
+     * @param mixed     $data
+     * @return mixed
+     */
     public function unwrapData($data)
     {
         if (is_array($data)) {

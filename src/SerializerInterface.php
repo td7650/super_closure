@@ -41,5 +41,23 @@ interface SerializerInterface
      *
      * @return \Closure
      */
-    public function getData(\Closure $closure, $forSerialization = false);
+    //public function getData(\Closure $closure, $forSerialization = false);
+
+    /**
+     * takes a Closure or a array of Closures and decorates it with a SerializableClosure object
+     *
+     * @param mixed     $data
+     * @return mixed
+     */
+    public function wrapData($data);
+
+
+    /**
+     * Takes a decorated SerializableClosure object (or an array of it) and extracts the
+     * original Closure objects
+     *
+     * @param mixed     $data
+     * @return mixed
+     */
+    public function unwrapData($data);
 }
