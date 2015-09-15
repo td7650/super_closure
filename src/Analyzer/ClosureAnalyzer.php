@@ -19,7 +19,7 @@ abstract class ClosureAnalyzer
             'reflection' => new \ReflectionFunction($closure),
             'code'       => null,
             'hasThis'    => false,
-            'context'    => [],
+            'context'    => array(),
             'hasRefs'    => false,
             'binding'    => null,
             'scope'      => null,
